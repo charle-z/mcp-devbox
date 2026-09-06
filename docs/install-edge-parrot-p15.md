@@ -91,9 +91,9 @@ renames the release into place, swaps `current`, installs only the packaged Edge
 restarts only the configured Edge service, checks health and restores the previous
 signed release on failure. Rollback accepts only the prior locally known signed bundle.
 Repair restores exact compatibility links/modes/unit/service from a valid signed
-release or fetches `stable` when the active bundle is incomplete. Cleanup always keeps
-current, previous and at least one additional signed release, and removes only older
-signed release directories after 30 days.
+release or fetches `stable` when the active bundle is incomplete. After a successful
+update, cleanup keeps only current and previous and removes every other trusted signed
+release directory. It leaves untrusted or malformed directories unchanged.
 
 The unprivileged Edge can request only three fixed root-owned units through a generated
 polkit rule: official stable update, previous signed rollback, and official repair.

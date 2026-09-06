@@ -42,6 +42,11 @@ rollback state exists locally or in named rollback branches, and exact assets ar
 longer needed for supported reinstall. Removing a GitHub release does not remove its
 Git tag unless that is separately approved.
 
+After a successful Linux Edge update, local bundle cleanup keeps only the trusted
+release directories named by `current` and `previous`. It removes other trusted
+signed release directories regardless of age and leaves untrusted or malformed
+directories unchanged for fail-closed investigation.
+
 ## Release process
 
 1. Merge an exact-head-green pull request into protected `main`.

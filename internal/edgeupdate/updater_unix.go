@@ -13,10 +13,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/charle-z/mcp-devbox/internal/bundle"
 )
@@ -40,7 +38,6 @@ type Engine struct {
 	Root      string
 	PublicKey ed25519.PublicKey
 	Service   Service
-	Now       func() time.Time
 }
 
 type Status struct {
@@ -180,7 +177,7 @@ func (e Engine) Install(source string, expected bundle.Compatibility) (Status, e
 		if replacedBackup != "" {
 			_ = os.RemoveAll(replacedBackup)
 		}
-		_ = pruneOldReleases(root, e.PublicKey, e.now())
+		_ = pruneOldReleases(root, e.PublicKey)
 	}
 	return status, err
 }
@@ -274,13 +271,6 @@ func (e Engine) validRoot() (string, error) {
 		return "", errors.New("bundle updater root is unsafe")
 	}
 	return root, nil
-}
-
-func (e Engine) now() time.Time {
-	if e.Now != nil {
-		return e.Now().UTC()
-	}
-	return time.Now().UTC()
 }
 
 func copySignedRelease(source, destination string) error {
@@ -406,7 +396,7 @@ func lockUpdater(root string) (func(), error) {
 	}, nil
 }
 
-func pruneOldReleases(root string, publicKey ed25519.PublicKey, now time.Time) error {
+func pruneOldReleases(root string, publicKey ed25519.PublicKey) error {
 	status, err := statusFromLinks(root, nil)
 	if err != nil {
 		return err
@@ -417,11 +407,6 @@ func pruneOldReleases(root string, publicKey ed25519.PublicKey, now time.Time) e
 	if err != nil {
 		return err
 	}
-	type candidate struct {
-		name string
-		mod  time.Time
-	}
-	candidates := []candidate{}
 	for _, entry := range entries {
 		if !entry.IsDir() || !bundle.ValidRelease(entry.Name()) {
 			continue
@@ -433,19 +418,6 @@ func pruneOldReleases(root string, publicKey ed25519.PublicKey, now time.Time) e
 		if _, err := bundle.LoadTrusted(path, publicKey); err != nil {
 			continue
 		}
-		info, err := entry.Info()
-		if err == nil {
-			candidates = append(candidates, candidate{name: entry.Name(), mod: info.ModTime()})
-		}
-	}
-	sort.Slice(candidates, func(i, j int) bool { return candidates[i].mod.After(candidates[j].mod) })
-	retained := len(keep)
-	for _, item := range candidates {
-		if retained < 3 || now.Sub(item.mod) < 30*24*time.Hour {
-			retained++
-			continue
-		}
-		path := filepath.Join(root, ReleasesDirectory, item.name)
 		if err := os.RemoveAll(path); err != nil {
 			return err
 		}
