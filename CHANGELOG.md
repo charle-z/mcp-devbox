@@ -6,6 +6,8 @@ identifiers continue to use `mcp-devbox` and `mcp-edge` where documented.
 
 ## Unreleased
 
+- Retain only the current and previous trusted Linux Edge bundles after a successful
+  update so obsolete local releases do not accumulate.
 - Preserve terminal timestamps in native Windows process listings so reconciled stopped
   workers remain valid list results.
 - Add a bounded public-alpha install, acceptance, and feedback path and describe signed

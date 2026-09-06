@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/charle-z/mcp-devbox/internal/buildinfo"
@@ -276,6 +277,46 @@ func TestUpdaterRejectsUnsignedOrCallerMixedBundleBeforeActivation(t *testing.T)
 	}
 	if _, err := os.Lstat(filepath.Join(root, CurrentLink)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("current link exists after rejected install: %v", err)
+	}
+}
+
+func TestUpdaterPrunesEveryTrustedReleaseExceptCurrentAndPrevious(t *testing.T) {
+	root := t.TempDir()
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &fakeService{healthy: true}
+	engine := Engine{Root: root, PublicKey: publicKey, Service: service}
+
+	firstSource, firstCompatibility := signedRelease(t, "v1.2.1", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", privateKey)
+	if _, err := engine.Install(firstSource, firstCompatibility); err != nil {
+		t.Fatal(err)
+	}
+	secondSource, secondCompatibility := signedRelease(t, "v1.2.2", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", privateKey)
+	if _, err := engine.Install(secondSource, secondCompatibility); err != nil {
+		t.Fatal(err)
+	}
+	untrusted := filepath.Join(root, ReleasesDirectory, "v1.2.0")
+	if err := os.MkdirAll(untrusted, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	thirdSource, thirdCompatibility := signedRelease(t, "v1.2.3", "cccccccccccccccccccccccccccccccccccccccc", privateKey)
+	if _, err := engine.Install(thirdSource, thirdCompatibility); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, ReleasesDirectory))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		got = append(got, entry.Name())
+	}
+	want := []string{"v1.2.0", "v1.2.2", "v1.2.3"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("retained releases = %v; want %v", got, want)
 	}
 }
 
